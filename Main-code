@@ -1,0 +1,721 @@
+#include <DmxSimple.h>
+#include <Adafruit_NeoPixel.h>
+
+
+//// definition eingänge/ ausgänge /allgemeines  //////////////////////////////
+
+///// Code für den conter
+unsigned long stamps=0; 
+int zaehler =0; /// eiine zahl zwischen 0 und 8 --- DER ZÄHLER WIRD ABGEFRAGT
+////
+
+const int max_dmx = 60; //maximal benutze DMX Channels
+
+///// output pins
+
+const int pin_dmx = 2;
+const int Numpixels = 15;
+const int pin_Neopixel = 3;
+const int pin_led_gruen = 11;
+const int pin_led_blau = 4;
+const int schalter = 6;
+
+
+
+
+
+//// Eingangspins für Poti
+const int pin_Farbe = A5;
+const int pin_Helligkeit = A6;
+const int pin_Speed = A0;
+const int pin_Mode = A1;
+const int pin_Kugel = A4;
+const int pin_Laser = A7;
+
+
+///////////////////////////
+Adafruit_NeoPixel pixels(Numpixels, pin_Neopixel, NEO_GRB + NEO_KHZ800);
+
+////// output Spot/Kugel/Laser
+
+int spot_farbe[3];
+
+
+
+/// definition lampen   /////////////////////////////////////////////////
+
+void spot1(int r,int g,int b, int s){
+  DmxSimple.write(1, r);
+  DmxSimple.write(2, g); //s = strobo<
+  DmxSimple.write(3, b);
+  DmxSimple.write(5, s);
+}
+
+void spot2(int r,int g,int b,int s){
+  DmxSimple.write(10, r);
+  DmxSimple.write(11, g); //s= strobo
+  DmxSimple.write(12, b);
+  DmxSimple.write(14, s);
+}
+
+void spot3(int r,int g,int b,int s){
+  DmxSimple.write(20, r);
+  DmxSimple.write(21, g); //s= strobo
+  DmxSimple.write(22, b);
+  DmxSimple.write(24, s);
+}
+
+void spot4(int r,int g,int b,int s){
+  DmxSimple.write(30, r);
+  DmxSimple.write(31, g); //s= strobo
+  DmxSimple.write(32, b);
+  DmxSimple.write(34, s);
+}
+
+void spotkomplett(int r,int g,int b,int s){
+  spot1(r,g,b,s);
+  spot2(r,g,b,s);
+  spot3(r,g,b,s); // s= strobo
+  spot4(r,g,b,s);
+}
+
+
+void laser(int mode, int muster, int zoom, int rolling_x, int rolling_y, int rotating, int moving_x, int moving_y, int colour)
+{ // (mehr informationen im datenblatt vom laser (Laser Lightmaxx Club 2.0)
+  DmxSimple.write(50, mode);
+  DmxSimple.write(51 ,muster);
+  DmxSimple.write(52, zoom);
+  DmxSimple.write(53, rolling_x);
+  DmxSimple.write(54 ,rolling_y);
+  DmxSimple.write(55, rotating);
+  DmxSimple.write(56, moving_x);
+  DmxSimple.write(57, moving_y);
+  DmxSimple.write(58, colour);
+}
+
+void kugel(int strobo, int r, int g, int b, int rotation){
+    DmxSimple.write(40, strobo);
+    DmxSimple.write(41, r);
+    DmxSimple.write(42, g);
+    DmxSimple.write(43, b);
+    DmxSimple.write(44, rotation);
+  
+}
+///////////////////////////////////////////////////////////////////////////////////////
+void startanzeige(){
+
+for(int i=0; i<15; i++) {    //// Neopixel werden angesteuert
+
+    pixels.setPixelColor(i, pixels.Color(255,255,255)); /// Die helligkeit wird ausgegeben und abgezogen von y
+    pixels.show();
+    delay(100);
+   }
+   
+delay(100);
+   for(int i=0; i<15; i++) {    //// Neopixel werden angesteuert
+
+    pixels.setPixelColor(i, pixels.Color(0,0,0)); /// Die helligkeit wird ausgegeben und abgezogen von y
+    pixels.show();
+   }
+delay(100); 
+    for(int i=0; i<15; i++) {    //// Neopixel werden angesteuert
+
+    pixels.setPixelColor(i, pixels.Color(255,255,255)); /// Die helligkeit wird ausgegeben und abgezogen von y
+    pixels.show();
+   }
+delay(100);
+   for(int i=0; i<15; i++) {    //// Neopixel werden angesteuert
+
+    pixels.setPixelColor(i, pixels.Color(0,0,0)); /// Die helligkeit wird ausgegeben und abgezogen von y
+    pixels.show();
+   }
+delay(100);  
+    for(int i=0; i<15; i++) {    //// Neopixel werden angesteuert
+
+    pixels.setPixelColor(i, pixels.Color(255,255,255)); /// Die helligkeit wird ausgegeben und abgezogen von y
+    pixels.show();
+   }
+
+delay(500);
+for(int i=0; i<255; i++) {    //// Neopixel werden angesteuert
+
+    spotkomplett(i,i,i,0);
+    delay(10);
+   }
+   
+   delay(1000);
+pixels.clear();
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+void counter() {
+   unsigned long t=millis();
+   
+    int b= analogRead(pin_Speed); //
+   int intervall= map(b,0,1025,100,2000); // fragt den intervall poti ab iund generiert eine zahl zwischen 100 und 2000
+
+
+  if (t>=stamps){
+    stamps = stamps+intervall;
+    
+    zaehler ++;
+    if (zaehler == 9){ /// ende des counters + 1, da in der zeile zuvor der counter noch einen höher geht
+      zaehler = 1;
+    }
+
+  }
+  
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+int spot_zentrale(){ /// Automatik Modus oder Manuell modus
+  int schalter_status = digitalRead(schalter);
+
+  if (schalter_status == HIGH){ /// Schalter aus  /// Manueller Modus
+         digitalWrite(pin_led_blau,LOW);
+        digitalWrite(pin_led_gruen,HIGH);
+        poti_farbe(); /// Funktion für Manuelle Schaltung
+
+  }
+
+  else{
+    ////Schalter an  // Automatischer Modus
+    digitalWrite(pin_led_gruen,LOW);
+    digitalWrite(pin_led_blau,HIGH);
+    poti_mode(); /// ist für die automatische steurung zuständig
+
+  }
+}
+
+  
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+int poti_farbe(){
+  int b= analogRead(pin_Farbe);
+   int x= map(b,0,1025,0,89); /// die letze zahl ist die anzahl der slings (Farbmöglichkeiten)
+
+
+   int farben_input [][3] =   { {255,255,255}, {255,255,255}, {255,0,0}, {255,0,0}, {0,255,0}, {0,255,0}, {0,0,255}, {0,0,255},  /// Weiß,rot.grün,blau
+                              ///rot - grün
+                              {255,0,0},{255,10,0},{255,20,0},{255,30,0},{255,40,0},{255,50,0},
+                              {255,60,0},{255,70,0},{255,80,0},{255,90,0},{255,100,0},{255,110,0},{255,120,0},{255,130,0},
+                              {255,140,0},{255,150,0},{255,160,0},{255,170,0},{255,180,0},{255,190,0},{255,200,0},{255,210,0},
+                              {255,220,0},{255,230,0},{255,240,0},{255,255,0},
+                              ///grün - blau
+                              {0,255,0}, {0,255,10}, {0,255,20}, {0,255,30}, {0,255,40}, {0,255,50}, {0,255,60},
+                              {0,255,70}, {0,255,80}, {0,255,90}, {0,255,100}, {0,255,110}, {0,255,120}, {0,255,130},
+                              {0,255,130}, {0,255,140}, {0,255,150}, {0,255,160}, {0,255,170}, {0,255,180},
+                              {0,255,190}, {0,255,200}, {0,255,210}, {0,255,220}, {0,255,230}, {0,255,240}, 
+                              {0,255,255},
+                             /// blau-rot
+                              {0,0,255}, {10,0,255}, {20,0,255}, {30,0,255}, {40,0,255}, {50,0,255}, {60,0,255}, 
+                              {70,0,255}, {80,0,255}, {90,0,255}, {100,0,255}, {110,0,255}, {120,0,255}, {130,0,255}, 
+                              {140,0,255}, {150,0,255}, {160,0,255}, {170,0,255}, {180,0,255}, {190,0,255}, {200,0,255}, 
+                              {210,0,255}, {220,0,255}, {230,0,255}, {240,0,255},{255,0,255}, {0,0,0}, {0,0,0}};
+
+
+  int z = analogRead(pin_Helligkeit);
+   int y= map(z,0,1000,0,255); /// hier wird der hilligkeitspin abgefragt und später bei der ausgabe abgezogen
+int eins = farben_input [x][0] - y;
+int zwei = farben_input [x][1] - y;
+int drei = farben_input [x][2] - y;
+
+if (eins<=0){ //// die zahlen dürfen nicht kleiner als null werden, da sie sonst nicht mit den neopixeln funktionieren
+  eins =0;
+}
+if (zwei<=0){
+  zwei =0;
+}
+if (drei<=0){
+  drei =0;
+}
+
+   for(int i=10; i<15; i++) {    //// Neopixel werden angesteuert
+
+    pixels.setPixelColor(i, pixels.Color(eins,zwei,drei)); /// Die helligkeit wird ausgegeben und abgezogen von y
+    pixels.show();
+   }
+
+   spotkomplett(eins, zwei, drei,0); /// Farben werden angezeigt /// 0 stheht für strobo
+   
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void modeneopixel(int one,int two, int three, int four, int five) { //Ist für die steuerung der blauen LED in der dritten Zeile zuständig
+
+  pixels.setPixelColor(10, pixels.Color(0,one,0));   // Steuert die Neopixel
+  pixels.setPixelColor(11, pixels.Color(0,two,0));
+  pixels.setPixelColor(12, pixels.Color(0,three,0));
+  pixels.setPixelColor(13, pixels.Color(0,four,0));
+  pixels.setPixelColor(14, pixels.Color(0,five,0));
+  pixels.show();
+}
+
+int poti_mode(){
+  int b= analogRead(pin_Mode);
+   int x= map(b,0,1000,0,5); /// /// die letzte zahl ist die anzahl der modi. (Bis jetzt drei: aus, Auto, Sound)
+
+  if (x==0){
+    spotkomplett(0, 0, 0,0); /// spots aus
+    modeneopixel(0,0,0,0,0); //Steuert die neopixel in der ersten zeile
+  }
+
+  else if (x==1){
+    // Szene 1
+    if (zaehler ==1){
+      spotkomplett(255,0,0,0);
+    }
+    else if (zaehler ==2){
+      spotkomplett(0,255,0,0);
+    }
+    else if (zaehler ==3){
+      spotkomplett(0,0,255,0);
+    }
+    else if (zaehler ==4){
+      spotkomplett(255,0,0,0);
+    }
+    else if (zaehler ==5){
+      spotkomplett(0,255,0,0);
+    }
+    else if (zaehler ==6){
+      spotkomplett(0,0,255,0);
+    }
+    else if (zaehler ==7){
+      spotkomplett(255,0,0,0);
+    }
+      else if (zaehler ==8){
+      spotkomplett(0,255,0,0);
+    }
+    modeneopixel(255,0,0,0,0); //Steuert die neopixel in der ersten zeile
+}
+  
+  else if(x==2){
+    modeneopixel(0,255,0,0,0); //Steuert die neopixel in der ersten zeile
+    //Szene 2
+   if (zaehler ==1){
+      spotkomplett(255,0,0,255);
+    }
+    else if (zaehler ==2){
+      spotkomplett(0,255,0,255);
+    }
+    else if (zaehler ==3){
+      spotkomplett(0,0,255,255);
+    }
+    else if (zaehler ==4){
+      spotkomplett(255,0,0,255);
+    }
+    else if (zaehler ==5){
+      spotkomplett(0,255,0,255);
+    }
+    else if (zaehler ==6){
+      spotkomplett(0,0,255,255);
+    }
+    else if (zaehler ==7){
+      spotkomplett(255,0,0,255);
+    }
+      else if (zaehler ==8){
+      spotkomplett(0,255,0,255);
+    }
+    }
+    
+  else if(x==3){
+    modeneopixel(0,0,255,0,0); //Steuert die neopixel in der ersten zeile
+    //Szene 3
+       if (zaehler ==1){
+      spot1(255,255,255,0);
+      spot2(0,0,0,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==2){
+      spot1(0,0,0,0);
+      spot2(255,255,255,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==3){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(255,255,255,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==4){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(0,0,0,0);
+      spot4(255,255,255,0);
+    }
+    else if (zaehler ==5){
+      spot1(255,255,255,0);
+      spot2(0,0,0,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==6){
+      spot1(0,0,0,0);
+      spot2(255,255,255,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==7){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(255,255,255,0);
+      spot4(0,0,0,0);
+    }
+      else if (zaehler ==8){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(0,0,0,0);
+      spot4(255,255,255,0);
+    }
+   
+    }
+  else if(x==4){
+    modeneopixel(0,0,0,255,0); //Steuert die neopixel in der ersten zeile
+    // Szene 4
+    if (zaehler ==1){
+      spot1(255,255,0,0);
+      spot2(255,255,0,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==2){
+      spot1(0,0,0,0);
+      spot2(0,255,255,0);
+      spot3(0,255,255,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==3){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(255,0,255,0);
+      spot4(255,0,255,0);
+    }
+    else if (zaehler ==4){
+      spot1(255,255,0,0);
+      spot2(0,0,0,0);
+      spot3(0,0,0,0);
+      spot4(255,255,0,0);
+    }
+    else if (zaehler ==5){
+      spot1(0,255,255,0);
+      spot2(0,255,255,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==6){
+      spot1(0,0,0,0);
+      spot2(255,0,255,0);
+      spot3(255,0,255,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==7){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(255,255,0,0);
+      spot4(255,255,0,0);
+    }
+      else if (zaehler ==8){
+      spot1(0,255,255,0);
+      spot2(0,0,0,0);
+      spot3(0,0,0,0);
+      spot4(0,255,255,0);
+    }
+    
+   
+    }
+  else if(x==5){
+    modeneopixel(0,0,0,0,255); //Steuert die neopixel in der ersten zeile
+
+   if (zaehler ==1){
+      spot1(255,255,0,0);
+      spot2(0,0,0,0);
+      spot3(255,255,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==2){
+      spot1(0,0,0,0);
+      spot2(0,255,255,0);
+      spot3(0,0,0,0);
+      spot4(0,255,255,0);
+    }
+    else if (zaehler ==3){
+      spot1(0,0,0,0);
+      spot2(255,255,0,0);
+      spot3(0,0,0,0);
+      spot4(255,255,0,0);
+    }
+    else if (zaehler ==4){
+      spot1(255,0,255,0);
+      spot2(0,0,0,0);
+      spot3(255,0,255,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==5){
+      spot1(255,255,0,0);
+      spot2(255,255,0,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+    else if (zaehler ==6){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(0,255,255,0);
+      spot4(0,255,255,0);
+    }
+    else if (zaehler ==7){
+      spot1(0,255,255,0);
+      spot2(0,255,255,0);
+      spot3(0,0,0,0);
+      spot4(0,0,0,0);
+    }
+      else if (zaehler ==8){
+      spot1(0,0,0,0);
+      spot2(0,0,0,0);
+      spot3(255,255,0,0);
+      spot4(255,255,0,0);
+    }
+   
+   
+   }  
+  }
+
+
+///////////////////////////////////////////////////////////////////////////////////////////
+void laserneopixel(int one,int two, int three, int four, int five) { //Ist für die steuerung der blauen LED in der dritten Zeile zuständig
+
+  pixels.setPixelColor(0, pixels.Color(0,0,one));   // Steuert die Neopixel
+  pixels.setPixelColor(1, pixels.Color(0,0,two));
+  pixels.setPixelColor(2, pixels.Color(0,0,three));
+  pixels.setPixelColor(3, pixels.Color(0,0,four));
+  pixels.setPixelColor(4, pixels.Color(0,0,five));
+  pixels.show();
+}
+
+int poti_laser(){
+  int b= analogRead(pin_Laser);
+   int x= map(b,0,1000,0,5); /// /// die letzte zahl ist die anzahl der modi. (Bis jetzt drei: aus, Auto, Sound)
+
+  if (x==0){
+  laser(0, 0, 0, 0, 0, 0, 0, 0,0); /// Laser im Auto betrieb
+  laserneopixel(0,0,0,0,0); //Steuert die neopixel in der zweiten zeile
+  }
+
+  else if (x==1){
+    laser(80, 0, 0, 0, 0, 0, 0, 0,0); /// Laser im Auto betrieb
+    laserneopixel(255,0,0,0,0); //Steuert die neopixel in der zweiten zeile
+    }
+  
+  else if(x==2){
+    laser(140, 0, 0, 0, 0, 0, 0, 0,0); /// Laser im Sound betrieb
+    laserneopixel(0,255,0,0,0); //Steuert die neopixel in der zweiten zeile
+    }
+  else if(x==3){
+   laserneopixel(0,0,255,0,0); //Steuert die neopixel in der zweiten zeile
+    //Szene 3
+       if (zaehler ==1){
+
+        laser(255,155,0,0,0,0,0,140,255);
+       }
+      else if (zaehler ==3){
+        laser(255,178,0,0,0,0,155,137,255);
+        }
+        else if (zaehler ==7){
+        laser(255,27,112,0,0,0,137,152,255);
+        }
+      }
+
+        
+  else if(x==4){
+   laserneopixel(0,0,0,255,0); //Steuert die neopixel in der zweiten zeile
+
+   // Szene 4
+   //laser(255,178,0,0,0,0,155,137,255); // aleternative
+   laser(255,153,0,0,0,0,0,128,0);
+    }
+  else if(x==5){
+   laserneopixel(0,0,0,0,255); //Steuert die neopixel in der zweiten zeile
+
+   if (zaehler ==1){
+      laser(255,142,98,0,0,62,0,0,255);
+    }
+    else if (zaehler ==2){
+      laser(255,86,80,0,0,109,0,0,255);
+    }
+    else if (zaehler ==3){
+      laser(255,65,76,0,0,32,0,0,255);
+    }
+    else if (zaehler ==4){
+      laser(255,145,87,0,0,62,0,0,255);
+    }
+    else if (zaehler ==5){
+      laser(255,0,99,0,0,20,0,0,255);
+    }
+    else if (zaehler ==6){
+      laser(255,142,98,0,0,62,0,0,255);
+    }
+    else if (zaehler ==7){
+      laser(255,152,0,0,0,0,0,0,255);
+    }
+      else if (zaehler ==8){
+      laser(255,152,0,0,0,0,0,0,255);
+    }
+   }  
+  }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void kugelneopixel(int one,int two,int three,int four,int five){  ////// Ist für die steuerung der roten LED in der zweiten Zeile zuständig
+  
+      pixels.setPixelColor(5, pixels.Color(five,0,0)); // Steuert die Neopixel der zweiten Zeile
+      pixels.setPixelColor(6, pixels.Color(four,0,0));
+      pixels.setPixelColor(7, pixels.Color(three,0,0));
+      pixels.setPixelColor(8, pixels.Color(two,0,0));
+      pixels.setPixelColor(9, pixels.Color(one,0,0));
+      pixels.show();
+  
+}
+/////////////////////////
+
+/// kugel(int strobo, int r, int g, int b, int rotation)
+void poti_kugel(){
+  int b= analogRead(pin_Kugel);
+  int x= map(b,0,1000,0,5);
+
+  if (x==0){
+    kugel(0,0,0,0,0); //Szene 0
+    kugelneopixel(0,0,0,0,0); /// steuert neopixel der zweiten Zeile
+  }
+  
+  if (x==1){
+    kugel(0,255,255,255,200); //Szene 1
+    kugelneopixel(255,0,0,0,0); /// steuert neopixel der zweiten Zeile
+  }
+  
+  if (x==2){
+    kugel(50,255,255,255,200); //Szene 2
+    kugelneopixel(0,255,0,0,0); /// steuert neopixel der zweiten Zeile
+  }
+  
+  if (x==3){ //////////////////// Szene 3 der Kugel
+    ///////////Szene 3
+    if (zaehler ==1){
+      kugel(0,255,0,0,200);
+    }
+    else if (zaehler ==2){
+      kugel(0,0,255,0,200);
+    }
+    else if (zaehler ==3){
+      kugel(0,0,0,255,200);
+    }
+    else if (zaehler ==4){
+      kugel(0,255,0,0,200);
+    }
+    else if (zaehler ==5){
+      kugel(0,0,255,0,200);
+    }
+    else if (zaehler ==6){
+      kugel(0,0,0,255,200);
+    }
+    else if (zaehler ==7){
+      kugel(0,255,0,0,200);
+    }
+      else if (zaehler ==8){
+      kugel(0,0,255,0,200);
+    }
+    kugelneopixel(0,0,255,0,0);  /// steuert neopixel der zweiten Zeile
+    
+  }
+  if (x==4){
+    //// Szene 4
+    if (zaehler ==1){
+      kugel(50,255,0,0,200);
+    }
+    else if (zaehler ==2){
+      kugel(50,0,255,0,200);
+    }
+    else if (zaehler ==3){
+      kugel(50,0,0,255,200);
+    }
+    else if (zaehler ==4){
+      kugel(50,255,0,0,200);
+    }
+    else if (zaehler ==5){
+      kugel(50,0,255,0,200);
+    }
+    else if (zaehler ==6){
+      kugel(50,0,0,255,200);
+    }
+    else if (zaehler ==7){
+      kugel(50,255,0,0,200);
+    }
+      else if (zaehler ==8){
+      kugel(50,0,255,0,200);
+    }
+    kugelneopixel(0,0,0,255,0); /// steuert neopixel der zweiten Zeile
+    
+  }
+  if (x==5){
+        ///////////Szene 5
+    if (zaehler ==1){
+      kugel(0, 255,255,0, 200);
+    }
+    else if (zaehler ==2){
+      kugel(0, 0,255,255, 200);
+    }
+    else if (zaehler ==3){
+      kugel(0, 255,0,255, 200);
+    }
+    else if (zaehler ==4){
+      kugel(0, 255,255,0, 200);
+    }
+    else if (zaehler ==5){
+      kugel(0, 0,255,255, 200);
+    }
+    else if (zaehler ==6){
+      kugel(0, 255,0,255, 200);
+    }
+    else if (zaehler ==7){
+      kugel(0, 255,255,0, 200);
+    }
+      else if (zaehler ==8){
+      kugel(0, 0,255,255, 200);
+    }
+    kugelneopixel(0,0,0,0,255); /// steuert neopixel der zweiten Zeile
+    
+  }
+}
+/////////////////////////////////////////////////////////////////////////////////////
+void setup() {
+  
+  pixels.begin(); // Neopixel
+  pixels.clear();
+  pixels.show();
+  Serial.begin(9600);
+/// definitionen
+  DmxSimple.usePin(pin_dmx);
+  DmxSimple.maxChannel(max_dmx);
+  pinMode(schalter, INPUT_PULLUP); /// pin status für den schalter
+
+  startanzeige(); /// führt die leds zum start aus
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void loop() {
+  counter();/// abgeschlossen
+  poti_kugel(); /// abgeschlossen
+  poti_laser(); // abgeschlossen
+  spot_zentrale(); // abgeschlossen (es fehlt nur die helligkeitsregelung)
+  
+  
+}
